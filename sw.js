@@ -1,5 +1,5 @@
-/* Rig Check - keeps the app usable with no signal. Bump CACHE with each release. */
-const CACHE = 'rigcheck-v1.0';
+/* Trip Check - keeps the app usable with no signal. Bump CACHE with each release. */
+const CACHE = 'tripcheck-v1.1';
 const SHELL = ['./', 'index.html', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png'];
 
 self.addEventListener('install', (e) => {
@@ -9,7 +9,7 @@ self.addEventListener('install', (e) => {
 self.addEventListener('activate', (e) => {
   e.waitUntil(
     caches.keys()
-      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
+      .then((keys) => Promise.all(keys.filter((k) => /^(rigcheck|tripcheck)-/.test(k) && k !== CACHE).map((k) => caches.delete(k))))
       .then(() => self.clients.claim())
   );
 });

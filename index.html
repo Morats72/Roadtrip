@@ -15,13 +15,13 @@
 :root{
   --bg:#eef1f4; --panel:#ffffff; --ink:#14233a; --mute:#566579; --line:#d3dae3;
   --head:#1b3358; --head-ink:#ffffff; --accent:#1b3358; --accent-ink:#ffffff;
-  --flag:#c8321f; --ok:#1f7a4d; --chip:#e1e7ee; --w:#2a5fa8; --b:#8a3d7c; --s:#566579;
+  --flag:#c8321f; --ok:#1f7a4d; --chip:#e1e7ee; --w:#2a5fa8; --b:#8a3d7c; --s:#566579; --k:#0f6f68;
   color-scheme:light;
 }
 @media (prefers-color-scheme:dark){:root{
   --bg:#0d1622; --panel:#172334; --ink:#e9eef5; --mute:#9cabbe; --line:#2b3b52;
   --head:#111d2e; --head-ink:#e9eef5; --accent:#8fb6ee; --accent-ink:#0d1622;
-  --flag:#ff7a66; --ok:#55c08a; --chip:#22324a; --w:#8fb6ee; --b:#dc9bd0; --s:#9cabbe;
+  --flag:#ff7a66; --ok:#55c08a; --chip:#22324a; --w:#8fb6ee; --b:#dc9bd0; --s:#9cabbe; --k:#5fd0c4;
   color-scheme:dark;
 }}
 *{box-sizing:border-box}
@@ -71,8 +71,13 @@ li.row{display:flex;align-items:stretch;border-top:1px solid var(--line)}
 .row.skip .nm{color:var(--mute);font-style:italic}
 .row .meta{font-size:13px;color:var(--mute)}
 .row .meta .fl{color:var(--flag);font-weight:700}
-.own{flex:none;align-self:center;margin-right:12px;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-size:14px;font-weight:800;border:2px solid currentColor}
-.own.W{color:var(--w)} .own.B{color:var(--b)} .own.S{color:var(--s)}
+.own{flex:none;align-self:center;margin-right:12px;min-width:30px;height:30px;padding:0 5px;border-radius:15px;display:grid;place-items:center;font-size:13px;font-weight:800;border:2px solid currentColor}
+.own.W{color:var(--w)} .own.B{color:var(--b)} .own.S{color:var(--s)} .own.K{color:var(--k)}
+.kid{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.kid b{flex:1 1 90px;min-width:0;overflow-wrap:anywhere}
+.kid .btn{min-height:44px;padding:8px 12px}
+.kidadd{display:flex;gap:8px}
+.kidadd input{flex:1;min-width:0}
 
 #addbar{background:var(--panel);border-top:1px solid var(--line);padding:8px 16px}
 #addbar form{max-width:640px;margin:0 auto;display:flex;gap:8px;flex-wrap:wrap}
@@ -128,10 +133,11 @@ hr{border:0;border-top:1px solid var(--line);margin:2px 0;width:100%}
 
 <script>
 'use strict';
-const VERSION = '1.0';
+const VERSION = '1.1';
 const PEOPLE = { W: 'Wally', B: 'Becky', S: 'Shared' };
 const CATS = ['Clothes', 'Toiletries', 'Meds & first aid', 'Electronics', 'Food & kitchen', 'Outdoors', 'Protection', 'Documents & money', 'Thrifting kit', 'Car'];
 const ROOMS = ['Bedroom', 'Bathroom', 'Kitchen', 'Living area', 'Outside & car', 'Anywhere'];
+const KID_SEED = [['p-walterv', 'Walter V'], ['p-abby', 'Abby']];
 const FIELDS = ['id', 'kind', 'name', 'cat', 'owner', 'flag', 'room', 'skip', 'done', 'doneBy', 'doneAt', 'back', 'backBy', 'backAt', 'updated', 'deleted'];
 
 /* Starter list. name, subject, whose, don't-leave-behind room ('' = not flagged). */
@@ -182,6 +188,8 @@ function seed() {
 let cfg = Object.assign({ me: '', url: '', filter: 'all', hide: false, closed: {}, tab: 'pack', last: 0, sv: '' }, load('rc.cfg', {}));
 let items = load('rc.items', null);
 if (!items) { items = seed(); store('rc.items', items); }
+KID_SEED.forEach((k) => { if (!items.some((i) => i.id === k[0])) items.push(mk({ id: k[0], kind: 'person', name: k[1], flag: false, updated: 1, _d: true })); });
+store('rc.items', items);
 let status = '';
 const saveCfg = () => store('rc.cfg', cfg);
 const saveItems = () => store('rc.items', items);
@@ -189,6 +197,18 @@ const live = () => items.filter((i) => !i.deleted);
 const byId = (id) => items.find((i) => i.id === id);
 const trip = () => byId('_trip') || (items.push(mk({ id: '_trip', kind: 'meta' })), byId('_trip'));
 const hm = (t) => new Date(t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+
+/* Kids are rows in the shared sheet: kind 'person', name, flag = coming on this trip. */
+const kids = () => live().filter((i) => i.kind === 'person').sort((a, b) => a.name.localeCompare(b.name));
+const kid = (id) => kids().find((k) => k.id === id);
+const initials = (n) => n.trim().split(/\s+/).slice(0, 2).map((x) => x.charAt(0).toUpperCase()).join('');
+const pname = (c) => PEOPLE[c] || (items.find((i) => i.id === c && i.kind === 'person') || {}).name || 'Someone';
+const isKidMe = () => !!kid(cfg.me);
+const meOk = () => cfg.me === 'W' || cfg.me === 'B' || isKidMe();
+const coming = (c) => !!PEOPLE[c] || !!(kid(c) && kid(c).flag);
+const packItems = () => live().filter((i) => i.kind === 'item' && coming(i.owner) && (!isKidMe() || i.owner === cfg.me));
+const newOwner = () => (isKidMe() ? cfg.me : (cfg.filter !== 'all' ? cfg.filter : (meOk() ? cfg.me : 'S')));
+let lastErr = '';
 
 function touch(it) {
   it.updated = Math.max(Date.now(), (it.updated || 0) + 1);
@@ -210,18 +230,18 @@ function row(it, on, mode) {
     const bits = [];
     if (it.flag) bits.push('<span class="fl">Don\'t leave behind' + (it.room && it.room !== 'Anywhere' ? ' · ' + esc(it.room) : '') + '</span>');
     if (it.skip) bits.push('Not this trip');
-    else if (it.done && it.doneBy) bits.push('Packed by ' + esc(PEOPLE[it.doneBy] || it.doneBy) + ' ' + hm(it.doneAt));
+    else if (it.done && it.doneBy) bits.push('Packed by ' + esc(pname(it.doneBy)) + ' ' + hm(it.doneAt));
     meta = bits.join(' · ');
   } else {
     const by = it.kind === 'item' ? it.backBy : it.doneBy, at = it.kind === 'item' ? it.backAt : it.doneAt;
     if (it.skip) meta = 'Not this trip';
-    else if (on && by) meta = (it.kind === 'item' ? 'Back in the bag, ' : 'Done, ') + esc(PEOPLE[by] || by) + ' ' + hm(at);
+    else if (on && by) meta = (it.kind === 'item' ? 'Back in the bag, ' : 'Done, ') + esc(pname(by)) + ' ' + hm(at);
     else if (it.kind === 'item') meta = 'You packed this';
   }
   return '<li class="row' + (on ? ' on' : '') + (it.skip ? ' skip' : '') + '">' +
     '<button class="chk" type="button" data-act="chk" data-id="' + esc(it.id) + '" aria-pressed="' + on + '" aria-label="' + esc(it.name) + '"' + (it.skip ? ' disabled' : '') + '><i>&#10003;</i></button>' +
     '<button class="body" type="button" data-act="edit" data-id="' + esc(it.id) + '"><span class="nm">' + esc(it.name) + '</span>' + (meta ? '<span class="meta">' + meta + '</span>' : '') + '</button>' +
-    (it.kind === 'item' ? '<span class="own ' + esc(it.owner) + '" title="' + esc(PEOPLE[it.owner] || '') + '">' + esc(it.owner) + '</span>' : '') + '</li>';
+    (it.kind === 'item' ? '<span class="own ' + (PEOPLE[it.owner] ? it.owner : 'K') + '" title="' + esc(pname(it.owner)) + '">' + esc(PEOPLE[it.owner] ? it.owner : initials(pname(it.owner))) + '</span>' : '') + '</li>';
 }
 function group(key, title, done, total, body) {
   const shut = !!cfg.closed[key];
@@ -238,15 +258,15 @@ function cats() {
   return { all: CATS.concat(extra), have };
 }
 function packCounts() {
-  const its = live().filter((i) => i.kind === 'item' && !i.skip);
+  const its = packItems().filter((i) => !i.skip);
   return { done: its.filter((i) => i.done).length, total: its.length };
 }
 function departRows() {
   const l = live();
   return {
-    items: l.filter((i) => i.kind === 'item' && i.flag && i.done && !i.skip),
-    sweeps: l.filter((i) => i.kind === 'sweep'),
-    chores: l.filter((i) => i.kind === 'chore')
+    items: packItems().filter((i) => i.flag && i.done && !i.skip),
+    sweeps: isKidMe() ? [] : l.filter((i) => i.kind === 'sweep'),
+    chores: isKidMe() ? [] : l.filter((i) => i.kind === 'chore')
   };
 }
 const isOn = (it) => (it.kind === 'item' ? it.back : it.done);
@@ -254,31 +274,34 @@ const isOn = (it) => (it.kind === 'item' ? it.back : it.done);
 function renderPack() {
   const pc = packCounts(), c = cats();
   let h = '';
-  if (!cfg.me) {
+  if (!meOk()) {
     h += '<div class="card"><b>Who\'s holding this phone?</b><p class="note">This is how the list shows who packed what.</p><div class="acts">' +
-      '<button class="btn" type="button" data-act="me" data-id="W">' + PEOPLE.W + '</button><button class="btn" type="button" data-act="me" data-id="B">' + PEOPLE.B + '</button></div></div>';
+      ['W', 'B'].concat(kids().map((k) => k.id)).map((o) => '<button class="btn" type="button" data-act="me" data-id="' + esc(o) + '">' + esc(pname(o)) + '</button>').join('') + '</div>' +
+      '<div class="kidadd"><input type="text" id="me-new" maxlength="30" placeholder="Not listed? Type your name" aria-label="Your name"><button class="btn ghost" type="button" data-act="menew">Add me</button></div></div>';
   }
   h += progress(pc.done, pc.total, 'packed');
-  h += '<div class="chips">' + [['all', 'Everything'], ['W', PEOPLE.W], ['B', PEOPLE.B], ['S', PEOPLE.S]].map((f) =>
-    '<button class="chip" type="button" data-act="filter" data-id="' + f[0] + '" aria-pressed="' + (cfg.filter === f[0]) + '">' + f[1] + '</button>').join('') +
+  if (isKidMe() && !kid(cfg.me).flag) h += '<p class="note">You\'re not marked as coming on this trip. Ask ' + PEOPLE.W + ' or ' + PEOPLE.B + ' to add you in Settings.</p>';
+  const who = isKidMe() ? [] : [['all', 'Everything'], ['W', PEOPLE.W], ['B', PEOPLE.B], ['S', PEOPLE.S]].concat(kids().filter((k) => k.flag).map((k) => [k.id, k.name]));
+  h += '<div class="chips">' + who.map((f) =>
+    '<button class="chip" type="button" data-act="filter" data-id="' + esc(f[0]) + '" aria-pressed="' + (cfg.filter === f[0]) + '">' + esc(f[1]) + '</button>').join('') +
     '<button class="chip" type="button" data-act="hide" aria-pressed="' + cfg.hide + '">Hide packed</button></div>';
   let shown = 0;
   c.all.forEach((cat) => {
-    const inCat = live().filter((i) => i.kind === 'item' && i.cat === cat && (cfg.filter === 'all' || i.owner === cfg.filter));
+    const inCat = packItems().filter((i) => i.cat === cat && (isKidMe() || cfg.filter === 'all' || i.owner === cfg.filter));
     if (!inCat.length) return;
     const counted = inCat.filter((i) => !i.skip);
     const vis = inCat.filter((i) => !(cfg.hide && i.done)).sort((a, b) => (a.skip - b.skip) || a.name.localeCompare(b.name) || a.owner.localeCompare(b.owner));
     shown += vis.length;
     h += group('p:' + cat, cat, counted.filter((i) => i.done).length, counted.length, '<ul>' + vis.map((i) => row(i, i.done, 'pack')).join('') + '</ul>');
   });
-  if (!shown) h += '<p class="note">' + (pc.total && pc.done === pc.total ? 'Everything is packed. Go find a thrift store.' : 'Nothing to show with this filter.') + '</p>';
+  if (!shown) h += '<p class="note">' + (pc.total && pc.done === pc.total ? 'Everything is packed. Go find a thrift store.' : (pc.total ? 'Nothing to show with this filter.' : 'Nothing on this list yet. Add the first thing below.')) + '</p>';
   h += '<p class="note">Tap a name to change it, mark it "don\'t leave behind", or skip it for this trip.</p>';
   return h;
 }
 function renderDepart() {
   const d = departRows();
   const count = d.items.concat(d.sweeps, d.chores).filter((i) => !i.skip);
-  let h = progress(count.filter(isOn).length, count.length, 'squared away');
+  let h = progress(count.filter(isOn).length, count.length, isKidMe() ? 'back in the bag' : 'squared away');
   if (!d.items.length) h += '<p class="note">Nothing flagged has been packed yet. Anything you mark "don\'t leave behind" shows up here once it\'s checked off on the Pack tab.</p>';
   ROOMS.forEach((room) => {
     const its = d.items.filter((i) => (i.room || 'Anywhere') === room).sort((a, b) => a.name.localeCompare(b.name));
@@ -291,7 +314,7 @@ function renderDepart() {
     h += group('d:' + room, room, cnt.filter(isOn).length, cnt.length, body);
   });
   const ch = d.chores.filter((i) => !i.skip);
-  h += group('d:chores', 'Checkout chores', ch.filter(isOn).length, ch.length, '<ul>' + d.chores.map((i) => row(i, i.done, 'depart')).join('') + '</ul>');
+  if (!isKidMe()) h += group('d:chores', 'Checkout chores', ch.filter(isOn).length, ch.length, '<ul>' + d.chores.map((i) => row(i, i.done, 'depart')).join('') + '</ul>');
   return h;
 }
 function render() {
@@ -299,7 +322,11 @@ function render() {
   $('trip').textContent = trip().name || '';
   $('status').textContent = status || (cfg.url ? (cfg.last ? 'Synced ' + hm(cfg.last) : 'Not synced yet') : 'This phone only');
   document.querySelectorAll('nav button').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tab === cfg.tab)));
+  if (cfg.filter !== 'all' && !PEOPLE[cfg.filter] && !coming(cfg.filter)) cfg.filter = 'all';
+  $('addbar').hidden = isKidMe() && cfg.tab === 'depart';
+  const typed = $('me-new') ? $('me-new').value : '';
   $('view').innerHTML = cfg.tab === 'pack' ? renderPack() : renderDepart();
+  if (typed && $('me-new')) $('me-new').value = typed;
   const sel = $('addwhere'), keep = sel.dataset.tab === cfg.tab ? sel.value : '';
   if (cfg.tab === 'pack') {
     $('addname').placeholder = 'Add something to pack';
@@ -317,13 +344,18 @@ $('view').addEventListener('click', (e) => {
   const b = e.target.closest('[data-act]'); if (!b) return;
   const act = b.dataset.act, id = b.dataset.id;
   if (act === 'me') { cfg.me = id; saveCfg(); render(); }
+  else if (act === 'menew') {
+    const nm = $('me-new').value.trim(); if (!nm) { $('me-new').focus(); return; }
+    const k = mk({ id: 'p-' + uid(), kind: 'person', name: nm, flag: true });
+    items.push(k); touch(k); cfg.me = k.id; saveCfg(); commit();
+  }
   else if (act === 'filter') { cfg.filter = id; saveCfg(); render(); }
   else if (act === 'hide') { cfg.hide = !cfg.hide; saveCfg(); render(); }
   else if (act === 'fold') { cfg.closed[b.dataset.key] = !cfg.closed[b.dataset.key]; saveCfg(); render(); }
   else if (act === 'edit') openEdit(byId(id));
   else if (act === 'chk') {
     const it = byId(id); if (!it) return;
-    const now = Date.now(), who = cfg.me || '';
+    const now = Date.now(), who = meOk() ? cfg.me : '';
     if (cfg.tab === 'pack') {
       it.done = !it.done; it.doneBy = it.done ? who : ''; it.doneAt = it.done ? now : 0;
       if (!it.done) { it.back = false; it.backBy = ''; it.backAt = 0; }
@@ -345,8 +377,8 @@ $('addform').addEventListener('submit', (e) => {
   if (!name) { $('addname').focus(); return; }
   let it;
   if (cfg.tab === 'pack') {
-    if (where === '__new__') { openEdit(mk({ name: name, owner: cfg.filter !== 'all' ? cfg.filter : (cfg.me || 'S') }), true); return; }
-    it = mk({ name: name, cat: where, owner: cfg.filter !== 'all' ? cfg.filter : (cfg.me || 'S') });
+    if (where === '__new__') { openEdit(mk({ name: name, owner: newOwner() }), true); return; }
+    it = mk({ name: name, cat: where, owner: newOwner() });
   } else {
     it = where === 'chore' ? mk({ kind: 'chore', name: name }) : mk({ kind: 'sweep', name: name, room: where });
   }
@@ -371,8 +403,8 @@ function openEdit(it, isNew) {
     h += '<label class="fld"><span>Subject</span><select id="e-cat">' + c.map((x) => '<option' + (x === it.cat ? ' selected' : '') + '>' + esc(x) + '</option>').join('') +
       '<option value="__new__"' + (isNew ? ' selected' : '') + '>+ New subject</option></select></label>' +
       '<label class="fld" id="e-newwrap"' + (isNew ? '' : ' hidden') + '><span>New subject name</span><input type="text" id="e-newcat" maxlength="40"></label>' +
-      '<div class="fld"><span>Whose is it</span><div class="seg">' + ['W', 'B', 'S'].map((o) =>
-        '<label><input type="radio" name="e-own" value="' + o + '"' + (it.owner === o ? ' checked' : '') + '><span>' + PEOPLE[o] + '</span></label>').join('') + '</div></div>' +
+      '<div class="fld"' + (isKidMe() ? ' hidden' : '') + '><span>Whose is it</span><div class="seg">' + ['W', 'B', 'S'].concat(kids().filter((k) => k.flag || k.id === it.owner).map((k) => k.id)).map((o) =>
+        '<label><input type="radio" name="e-own" value="' + esc(o) + '"' + (it.owner === o ? ' checked' : '') + '><span>' + esc(pname(o)) + '</span></label>').join('') + '</div></div>' +
       '<label class="tog"><input type="checkbox" id="e-flag"' + (it.flag ? ' checked' : '') + '><span>Don\'t leave behind (shows on the Depart tab)</span></label>' +
       '<label class="fld" id="e-roomwrap"' + (it.flag ? '' : ' hidden') + '><span>Where it ends up at the rental</span><select id="e-room">' +
         ROOMS.map((r) => '<option' + (r === (it.room || 'Anywhere') ? ' selected' : '') + '>' + esc(r) + '</option>').join('') + '</select></label>';
@@ -414,17 +446,38 @@ function openEdit(it, isNew) {
 /* ---------- settings ---------- */
 function setupLink() { return location.origin + location.pathname + '?u=' + encodeURIComponent(cfg.url); }
 function openSettings() {
+  const kidMe = isKidMe();
   dlg.innerHTML = '<form method="dialog" id="sf"><h2>Settings</h2>' +
-    '<div class="fld"><span>Who\'s holding this phone</span><div class="seg">' + ['W', 'B'].map((o) =>
-      '<label><input type="radio" name="s-me" value="' + o + '"' + (cfg.me === o ? ' checked' : '') + '><span>' + PEOPLE[o] + '</span></label>').join('') + '</div></div>' +
-    '<label class="fld"><span>Trip name</span><input type="text" id="s-trip" maxlength="60" placeholder="Smokies, October" value="' + esc(trip().name) + '"></label>' +
-    '<button class="btn danger" type="button" id="s-reset">Start a new trip (clear every check mark)</button>' +
-    '<p class="note">The list stays. Check marks and "not this trip" are cleared on both phones.</p><hr>' +
+    '<div class="fld"><span>Who\'s holding this phone</span><div class="seg">' + ['W', 'B'].concat(kids().map((k) => k.id)).map((o) =>
+      '<label><input type="radio" name="s-me" value="' + esc(o) + '"' + (cfg.me === o ? ' checked' : '') + '><span>' + esc(pname(o)) + '</span></label>').join('') + '</div></div>' +
+    '<label class="fld"' + (kidMe ? ' hidden' : '') + '><span>Trip name</span><input type="text" id="s-trip" maxlength="60" placeholder="Smokies, October" value="' + esc(trip().name) + '"></label>' +
+    '<div class="fld"' + (kidMe ? ' hidden' : '') + '><span>Kids</span>' +
+      kids().map((k) => '<div class="kid"><b>' + esc(k.name) + '</b><label class="tog"><input type="checkbox" data-kid="' + esc(k.id) + '"' + (k.flag ? ' checked' : '') + '><span>Coming this trip</span></label>' +
+        '<button class="btn danger" type="button" data-kidrm="' + esc(k.id) + '">Remove</button></div>').join('') +
+      '<div class="kidadd"><input type="text" id="s-kid" maxlength="30" placeholder="Kid\'s name"><button class="btn ghost" type="button" id="s-kidadd">Add</button></div>' +
+      '<p class="note">Each kid opens the setup link, taps their name, and builds their own list. You see it under their name. Removing a kid deletes their list.</p></div>' +
+    '<button class="btn danger" type="button" id="s-reset"' + (kidMe ? ' hidden' : '') + '>Start a new trip (clear every check mark)</button>' +
+    '<p class="note"' + (kidMe ? ' hidden' : '') + '>The list stays. Check marks and "not this trip" are cleared on every phone.</p><hr>' +
     '<label class="fld"><span>Google Sheet link (ends in /exec)</span><input type="url" id="s-url" inputmode="url" placeholder="https://script.google.com/macros/s/.../exec" value="' + esc(cfg.url) + '"></label>' +
     (cfg.url ? '<div class="fld"><span>Setup link for the other phone</span><div class="link" id="s-link">' + esc(setupLink()) + '</div><button class="btn ghost" type="button" id="s-copy">Copy setup link</button></div>' : '') +
-    '<p class="note" id="s-info">App v' + VERSION + (cfg.sv ? ' · Sheet script v' + esc(cfg.sv) : '') + ' · ' + esc($('status').textContent) + '</p>' +
+    '<p class="note" id="s-info">App v' + VERSION + (cfg.sv ? ' · Sheet script v' + esc(cfg.sv) : '') + ' · ' + esc($('status').textContent) + (lastErr ? ' · ' + esc(lastErr) : '') + '</p>' +
     '<div class="acts"><button class="btn" type="submit">Save &amp; sync</button><button class="btn ghost" type="button" id="s-close">Close</button></div></form>';
   $('s-close').addEventListener('click', () => dlg.close());
+  const addKid = () => {
+    const nm = $('s-kid').value.trim(); if (!nm) { $('s-kid').focus(); return; }
+    const k = mk({ id: 'p-' + uid(), kind: 'person', name: nm, flag: true });
+    items.push(k); touch(k); commit(); openSettings();
+  };
+  $('s-kidadd').addEventListener('click', addKid);
+  $('s-kid').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); addKid(); } });
+  dlg.querySelectorAll('[data-kid]').forEach((c) => c.addEventListener('change', () => {
+    const k = byId(c.dataset.kid); if (!k) return; k.flag = c.checked; touch(k); commit();
+  }));
+  dlg.querySelectorAll('[data-kidrm]').forEach((b) => armTwice(b, () => {
+    const id = b.dataset.kidrm;
+    items.forEach((i) => { if (!i.deleted && (i.id === id || (i.kind === 'item' && i.owner === id))) { i.deleted = true; touch(i); } });
+    commit(); openSettings();
+  }));
   armTwice($('s-reset'), () => {
     live().forEach((it) => {
       if (it.kind === 'meta') return;
@@ -447,7 +500,7 @@ function openSettings() {
     if (t.name !== nm) { t.name = nm; touch(t); }
     saveCfg(); dlg.close(); commit(); sync();
   });
-  dlg.showModal();
+  if (!dlg.open) dlg.showModal();
 }
 $('gear').addEventListener('click', openSettings);
 
@@ -469,11 +522,12 @@ async function sync() {
       if (l._d && l.updated > s.updated) return;             // edited again while this was in flight
       FIELDS.forEach((f) => { l[f] = s[f]; }); delete l._d;
     });
-    cfg.last = Date.now(); cfg.sv = js.v || ''; status = '';
+    cfg.last = Date.now(); cfg.sv = js.v || ''; status = ''; lastErr = '';
     saveCfg(); saveItems();
     if (!dlg.open) render(); else $('status').textContent = 'Synced ' + hm(cfg.last);
     if (items.some((i) => i._d)) queueSync();
   } catch (err) {
+    lastErr = String((err && err.message) || err).slice(0, 160);
     status = navigator.onLine === false ? 'No signal. Saved here, will sync' : 'Sync failed. Will retry';
     $('status').textContent = status;
   } finally { syncing = false; }

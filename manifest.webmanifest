@@ -1,6 +1,6 @@
 {
-  "name": "Rig Check",
-  "short_name": "Rig Check",
+  "name": "Trip Check",
+  "short_name": "Trip Check",
   "description": "Shared packing and checkout checklist",
   "start_url": "./",
   "scope": "./",
