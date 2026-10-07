@@ -1,0 +1,490 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Rig Check</title>
+<meta name="theme-color" content="#1b3358">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Rig Check">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<style>
+/* Layout: navy header, one scrolling check sheet, add bar and two big tabs pinned at the thumb. */
+:root{
+  --bg:#eef1f4; --panel:#ffffff; --ink:#14233a; --mute:#566579; --line:#d3dae3;
+  --head:#1b3358; --head-ink:#ffffff; --accent:#1b3358; --accent-ink:#ffffff;
+  --flag:#c8321f; --ok:#1f7a4d; --chip:#e1e7ee; --w:#2a5fa8; --b:#8a3d7c; --s:#566579;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#0d1622; --panel:#172334; --ink:#e9eef5; --mute:#9cabbe; --line:#2b3b52;
+  --head:#111d2e; --head-ink:#e9eef5; --accent:#8fb6ee; --accent-ink:#0d1622;
+  --flag:#ff7a66; --ok:#55c08a; --chip:#22324a; --w:#8fb6ee; --b:#dc9bd0; --s:#9cabbe;
+  color-scheme:dark;
+}}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--ink);font:17px/1.35 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  display:flex;flex-direction:column;-webkit-text-size-adjust:100%}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer;-webkit-tap-highlight-color:transparent}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+[hidden]{display:none!important}
+
+header{background:var(--head);color:var(--head-ink);display:flex;align-items:center;gap:12px;
+  padding:calc(env(safe-area-inset-top,0px) + 10px) 16px 10px}
+header h1{font-size:21px;margin:0;font-weight:800;letter-spacing:.02em;text-transform:uppercase}
+header .ver{font-size:12px;opacity:.7;font-weight:600;letter-spacing:0;text-transform:none}
+header .sub{font-size:13px;opacity:.85;display:flex;gap:8px;flex-wrap:wrap}
+header .grow{flex:1;min-width:0}
+#gear{background:transparent;border:1px solid rgba(255,255,255,.35);color:inherit;border-radius:10px;min-width:48px;height:48px;font-size:15px;font-weight:600;padding:0 10px}
+
+main{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:14px 16px 24px}
+.wrap{max-width:640px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+
+.prog{display:flex;flex-direction:column;gap:6px}
+.prog b{font-size:19px;font-variant-numeric:tabular-nums}
+.bar{height:10px;background:var(--chip);border-radius:5px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--ok)}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{background:var(--chip);border:2px solid transparent;border-radius:999px;padding:8px 14px;min-height:44px;font-weight:600}
+.chip[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+.note{color:var(--mute);font-size:15px;margin:0}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:10px}
+
+section.grp{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.grp>button.hd{width:100%;display:flex;align-items:center;gap:10px;background:transparent;border:0;padding:12px 14px;min-height:50px;text-align:left}
+.grp .hd span.t{flex:1;font-weight:800;font-size:15px;letter-spacing:.06em;text-transform:uppercase}
+.grp .hd span.n{color:var(--mute);font-variant-numeric:tabular-nums;font-weight:600}
+.grp .hd span.n.all{color:var(--ok)}
+.grp ul{list-style:none;margin:0;padding:0}
+.subhd{padding:6px 14px;font-size:13px;font-weight:700;color:var(--mute);letter-spacing:.05em;text-transform:uppercase;border-top:1px solid var(--line)}
+li.row{display:flex;align-items:stretch;border-top:1px solid var(--line)}
+.chk{flex:none;width:60px;min-height:56px;background:transparent;border:0;display:grid;place-items:center}
+.chk i{width:32px;height:32px;border:2.5px solid var(--mute);border-radius:8px;display:grid;place-items:center;font-style:normal;font-weight:900;font-size:22px;color:transparent}
+.row.on .chk i{background:var(--ok);border-color:var(--ok);color:var(--panel)}
+.row .body{flex:1;min-width:0;background:transparent;border:0;text-align:left;padding:8px 6px 8px 0;display:flex;flex-direction:column;justify-content:center;gap:2px}
+.row .nm{font-size:18px;overflow-wrap:anywhere}
+.row.on .nm{color:var(--mute);text-decoration:line-through}
+.row.skip .nm{color:var(--mute);font-style:italic}
+.row .meta{font-size:13px;color:var(--mute)}
+.row .meta .fl{color:var(--flag);font-weight:700}
+.own{flex:none;align-self:center;margin-right:12px;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-size:14px;font-weight:800;border:2px solid currentColor}
+.own.W{color:var(--w)} .own.B{color:var(--b)} .own.S{color:var(--s)}
+
+#addbar{background:var(--panel);border-top:1px solid var(--line);padding:8px 16px}
+#addbar form{max-width:640px;margin:0 auto;display:flex;gap:8px;flex-wrap:wrap}
+#addbar input{flex:1 1 100%;min-width:0}
+#addbar select{flex:1 1 120px;min-width:0}
+input[type=text],input[type=url],select{background:var(--bg);border:1.5px solid var(--line);border-radius:10px;padding:10px 12px;min-height:48px;font-size:17px;width:100%}
+.btn{background:var(--accent);color:var(--accent-ink);border:0;border-radius:10px;padding:10px 16px;min-height:48px;font-weight:700}
+.btn.ghost{background:var(--chip);color:var(--ink)}
+.btn.danger{background:transparent;color:var(--flag);border:1.5px solid var(--flag)}
+nav{display:flex;background:var(--head);padding-bottom:env(safe-area-inset-bottom,0px)}
+nav button{flex:1;background:transparent;border:0;color:var(--head-ink);opacity:.6;padding:12px 8px;min-height:56px;font-weight:800;font-size:16px;letter-spacing:.06em;text-transform:uppercase;border-top:4px solid transparent}
+nav button[aria-selected="true"]{opacity:1;border-top-color:var(--flag)}
+
+dialog{border:0;border-radius:16px;background:var(--panel);color:var(--ink);padding:0;width:min(560px,calc(100vw - 24px));max-height:calc(100% - 40px)}
+dialog::backdrop{background:rgba(5,12,22,.6)}
+dialog form{padding:18px;display:flex;flex-direction:column;gap:14px}
+dialog h2{margin:0;font-size:20px}
+.fld{display:flex;flex-direction:column;gap:6px}
+.fld>span{font-size:14px;font-weight:700;color:var(--mute)}
+.seg{display:flex;gap:8px;flex-wrap:wrap}
+.seg label{flex:1 1 90px}
+.seg input{position:absolute;opacity:0}
+.seg span{display:block;text-align:center;background:var(--chip);border-radius:10px;padding:12px 8px;font-weight:700;border:2px solid transparent}
+.seg input:checked+span{background:var(--accent);color:var(--accent-ink)}
+.seg input:focus-visible+span{outline:3px solid var(--accent);outline-offset:2px}
+.tog{display:flex;align-items:center;gap:12px;min-height:44px}
+.tog input{width:26px;height:26px;flex:none}
+.acts{display:flex;gap:10px;flex-wrap:wrap}
+.acts .btn{flex:1 1 120px}
+.link{font-size:14px;overflow-wrap:anywhere;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px;user-select:all;-webkit-user-select:all}
+hr{border:0;border-top:1px solid var(--line);margin:2px 0;width:100%}
+</style>
+</head>
+<body>
+<header>
+  <div class="grow">
+    <h1>Rig Check <span class="ver" id="ver"></span></h1>
+    <div class="sub"><span id="trip"></span><span id="status"></span></div>
+  </div>
+  <button id="gear" type="button">Settings</button>
+</header>
+<main><div class="wrap" id="view"></div></main>
+<div id="addbar"><form id="addform" autocomplete="off">
+  <input type="text" id="addname" maxlength="120" aria-label="New entry">
+  <select id="addwhere" aria-label="Where it goes"></select>
+  <button class="btn" type="submit">Add</button>
+</form></div>
+<nav role="tablist">
+  <button type="button" role="tab" data-tab="pack">Pack</button>
+  <button type="button" role="tab" data-tab="depart">Depart</button>
+</nav>
+<dialog id="dlg"></dialog>
+
+<script>
+'use strict';
+const VERSION = '1.0';
+const PEOPLE = { W: 'Wally', B: 'Becky', S: 'Shared' };
+const CATS = ['Clothes', 'Toiletries', 'Meds & first aid', 'Electronics', 'Food & kitchen', 'Outdoors', 'Protection', 'Documents & money', 'Thrifting kit', 'Car'];
+const ROOMS = ['Bedroom', 'Bathroom', 'Kitchen', 'Living area', 'Outside & car', 'Anywhere'];
+const FIELDS = ['id', 'kind', 'name', 'cat', 'owner', 'flag', 'room', 'skip', 'done', 'doneBy', 'doneAt', 'back', 'backBy', 'backAt', 'updated', 'deleted'];
+
+/* Starter list. name, subject, whose, don't-leave-behind room ('' = not flagged). */
+const SEED_ITEMS = [
+  ['Shirts', 'Clothes', 'W', ''], ['Pants & shorts', 'Clothes', 'W', ''], ['Socks & underwear', 'Clothes', 'W', ''], ['Jacket / rain shell', 'Clothes', 'W', 'Bedroom'], ['Boots & shoes', 'Clothes', 'W', ''],
+  ['Shirts', 'Clothes', 'B', ''], ['Pants & shorts', 'Clothes', 'B', ''], ['Socks & underwear', 'Clothes', 'B', ''], ['Jacket / rain shell', 'Clothes', 'B', 'Bedroom'], ['Boots & shoes', 'Clothes', 'B', ''],
+  ['Toothbrushes & toothpaste', 'Toiletries', 'S', 'Bathroom'], ['Shampoo & soap', 'Toiletries', 'S', 'Bathroom'], ['Razor', 'Toiletries', 'W', 'Bathroom'], ['Deodorant', 'Toiletries', 'S', ''], ['Makeup bag', 'Toiletries', 'B', 'Bathroom'], ['Hair dryer & brush', 'Toiletries', 'B', 'Bathroom'],
+  ['Daily meds', 'Meds & first aid', 'W', 'Anywhere'], ['Daily meds', 'Meds & first aid', 'B', 'Anywhere'], ['Reading glasses', 'Meds & first aid', 'S', 'Anywhere'], ['First aid kit', 'Meds & first aid', 'S', ''], ['Ibuprofen & antacids', 'Meds & first aid', 'S', ''],
+  ['Phone chargers', 'Electronics', 'S', 'Bedroom'], ['Watch charger', 'Electronics', 'S', 'Bedroom'], ['Power bank', 'Electronics', 'S', ''], ['Laptop / tablet', 'Electronics', 'S', 'Living area'], ['Earbuds', 'Electronics', 'S', 'Anywhere'],
+  ['Cooler', 'Food & kitchen', 'S', 'Kitchen'], ['Coffee & filters', 'Food & kitchen', 'S', ''], ['Snacks', 'Food & kitchen', 'S', ''], ['Water bottles', 'Food & kitchen', 'S', 'Kitchen'],
+  ['Bug spray', 'Outdoors', 'S', ''], ['Bear spray', 'Outdoors', 'S', 'Outside & car'], ['Sunscreen', 'Outdoors', 'S', ''], ['Day pack', 'Outdoors', 'S', ''], ['Flashlight / headlamp', 'Outdoors', 'S', ''], ['Camp chairs', 'Outdoors', 'S', 'Outside & car'],
+  ['Pistol', 'Protection', 'S', 'Bedroom'], ['Holster', 'Protection', 'S', 'Bedroom'], ['Magazines & ammo', 'Protection', 'S', 'Bedroom'], ['Lock box', 'Protection', 'S', 'Bedroom'],
+  ['Wallets & IDs', 'Documents & money', 'S', 'Anywhere'], ['Cash', 'Documents & money', 'S', ''], ['Insurance cards', 'Documents & money', 'S', ''], ['Airbnb address & door code', 'Documents & money', 'S', ''],
+  ['Tote bags', 'Thrifting kit', 'S', ''], ['Tape measure', 'Thrifting kit', 'S', ''], ['Small bills for rummage sales', 'Thrifting kit', 'S', ''], ['Blankets & straps for the haul', 'Thrifting kit', 'S', ''],
+  ['Sunglasses', 'Car', 'S', 'Outside & car'], ['Phone mount & car charger', 'Car', 'S', ''], ['Jump pack', 'Car', 'S', '']
+];
+const SEED_SWEEPS = [
+  ['Under the bed and behind the nightstands', 'Bedroom'], ['Every outlet: chargers and cords', 'Bedroom'], ['Closet and hangers', 'Bedroom'], ['Dresser and nightstand drawers', 'Bedroom'],
+  ['Shower and tub ledge', 'Bathroom'], ['Counter, drawers, medicine cabinet', 'Bathroom'], ['Hooks on the back of the door', 'Bathroom'],
+  ['Fridge and freezer', 'Kitchen'], ['Dishwasher and drying rack', 'Kitchen'], ['Counter outlets', 'Kitchen'],
+  ['Couch cushions and side tables', 'Living area'], ['Outlets around the TV', 'Living area'], ['Washer and dryer', 'Living area'],
+  ['Porch, deck, and grill', 'Outside & car'], ['Walk around the vehicle before pulling out', 'Outside & car']
+];
+const SEED_CHORES = [
+  'Read the host\'s checkout instructions', 'Dishes done or dishwasher started', 'Trash and recycling out', 'Towels where the host wants them', 'Strip the beds if asked',
+  'Thermostat set', 'Windows closed, lights off', 'Sign out of streaming on the TV', 'Doors locked, key back in the lockbox', 'Message the host that you\'re out', 'Quick photos of how you left it'
+];
+
+/* ---------- state ---------- */
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const uid = () => (crypto.randomUUID ? crypto.randomUUID() : 'x' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10));
+function load(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } }
+function store(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* storage blocked: runs in memory */ } }
+function mk(o) {
+  return Object.assign({ id: uid(), kind: 'item', name: '', cat: '', owner: 'S', flag: false, room: '', skip: false,
+    done: false, doneBy: '', doneAt: 0, back: false, backBy: '', backAt: 0, updated: 0, deleted: false }, o);
+}
+function seed() {
+  const out = [];
+  SEED_ITEMS.forEach((s, i) => out.push(mk({ id: 's' + i, name: s[0], cat: s[1], owner: s[2], flag: !!s[3], room: s[3], updated: 1, _d: true })));
+  SEED_SWEEPS.forEach((s, i) => out.push(mk({ id: 'w' + i, kind: 'sweep', name: s[0], room: s[1], updated: 1, _d: true })));
+  SEED_CHORES.forEach((s, i) => out.push(mk({ id: 'c' + i, kind: 'chore', name: s, updated: 1, _d: true })));
+  out.push(mk({ id: '_trip', kind: 'meta', name: '', updated: 1, _d: true }));
+  return out;
+}
+
+let cfg = Object.assign({ me: '', url: '', filter: 'all', hide: false, closed: {}, tab: 'pack', last: 0, sv: '' }, load('rc.cfg', {}));
+let items = load('rc.items', null);
+if (!items) { items = seed(); store('rc.items', items); }
+let status = '';
+const saveCfg = () => store('rc.cfg', cfg);
+const saveItems = () => store('rc.items', items);
+const live = () => items.filter((i) => !i.deleted);
+const byId = (id) => items.find((i) => i.id === id);
+const trip = () => byId('_trip') || (items.push(mk({ id: '_trip', kind: 'meta' })), byId('_trip'));
+const hm = (t) => new Date(t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+
+function touch(it) {
+  it.updated = Math.max(Date.now(), (it.updated || 0) + 1);
+  it._d = true;
+}
+function commit() { saveItems(); render(); queueSync(); }
+
+/* ---------- setup link ---------- */
+(function readSetup() {
+  const u = new URLSearchParams(location.search).get('u');
+  if (u && /^https:\/\//.test(u)) { cfg.url = u; saveCfg(); }
+  if (location.search) history.replaceState(null, '', location.pathname);
+})();
+
+/* ---------- render ---------- */
+function row(it, on, mode) {
+  let meta = '';
+  if (mode === 'pack') {
+    const bits = [];
+    if (it.flag) bits.push('<span class="fl">Don\'t leave behind' + (it.room && it.room !== 'Anywhere' ? ' · ' + esc(it.room) : '') + '</span>');
+    if (it.skip) bits.push('Not this trip');
+    else if (it.done && it.doneBy) bits.push('Packed by ' + esc(PEOPLE[it.doneBy] || it.doneBy) + ' ' + hm(it.doneAt));
+    meta = bits.join(' · ');
+  } else {
+    const by = it.kind === 'item' ? it.backBy : it.doneBy, at = it.kind === 'item' ? it.backAt : it.doneAt;
+    if (it.skip) meta = 'Not this trip';
+    else if (on && by) meta = (it.kind === 'item' ? 'Back in the bag, ' : 'Done, ') + esc(PEOPLE[by] || by) + ' ' + hm(at);
+    else if (it.kind === 'item') meta = 'You packed this';
+  }
+  return '<li class="row' + (on ? ' on' : '') + (it.skip ? ' skip' : '') + '">' +
+    '<button class="chk" type="button" data-act="chk" data-id="' + esc(it.id) + '" aria-pressed="' + on + '" aria-label="' + esc(it.name) + '"' + (it.skip ? ' disabled' : '') + '><i>&#10003;</i></button>' +
+    '<button class="body" type="button" data-act="edit" data-id="' + esc(it.id) + '"><span class="nm">' + esc(it.name) + '</span>' + (meta ? '<span class="meta">' + meta + '</span>' : '') + '</button>' +
+    (it.kind === 'item' ? '<span class="own ' + esc(it.owner) + '" title="' + esc(PEOPLE[it.owner] || '') + '">' + esc(it.owner) + '</span>' : '') + '</li>';
+}
+function group(key, title, done, total, body) {
+  const shut = !!cfg.closed[key];
+  return '<section class="grp"><button class="hd" type="button" data-act="fold" data-key="' + esc(key) + '" aria-expanded="' + !shut + '">' +
+    '<span class="t">' + esc(title) + '</span><span class="n' + (total && done === total ? ' all' : '') + '">' + done + ' / ' + total + '</span></button>' +
+    (shut ? '' : body) + '</section>';
+}
+function progress(done, total, word) {
+  return '<div class="prog"><b>' + done + ' of ' + total + ' ' + word + '</b><div class="bar"><i style="width:' + (total ? Math.round(100 * done / total) : 0) + '%"></i></div></div>';
+}
+function cats() {
+  const have = new Set(live().filter((i) => i.kind === 'item').map((i) => i.cat));
+  const extra = [...have].filter((c) => c && !CATS.includes(c)).sort((a, b) => a.localeCompare(b));
+  return { all: CATS.concat(extra), have };
+}
+function packCounts() {
+  const its = live().filter((i) => i.kind === 'item' && !i.skip);
+  return { done: its.filter((i) => i.done).length, total: its.length };
+}
+function departRows() {
+  const l = live();
+  return {
+    items: l.filter((i) => i.kind === 'item' && i.flag && i.done && !i.skip),
+    sweeps: l.filter((i) => i.kind === 'sweep'),
+    chores: l.filter((i) => i.kind === 'chore')
+  };
+}
+const isOn = (it) => (it.kind === 'item' ? it.back : it.done);
+
+function renderPack() {
+  const pc = packCounts(), c = cats();
+  let h = '';
+  if (!cfg.me) {
+    h += '<div class="card"><b>Who\'s holding this phone?</b><p class="note">This is how the list shows who packed what.</p><div class="acts">' +
+      '<button class="btn" type="button" data-act="me" data-id="W">' + PEOPLE.W + '</button><button class="btn" type="button" data-act="me" data-id="B">' + PEOPLE.B + '</button></div></div>';
+  }
+  h += progress(pc.done, pc.total, 'packed');
+  h += '<div class="chips">' + [['all', 'Everything'], ['W', PEOPLE.W], ['B', PEOPLE.B], ['S', PEOPLE.S]].map((f) =>
+    '<button class="chip" type="button" data-act="filter" data-id="' + f[0] + '" aria-pressed="' + (cfg.filter === f[0]) + '">' + f[1] + '</button>').join('') +
+    '<button class="chip" type="button" data-act="hide" aria-pressed="' + cfg.hide + '">Hide packed</button></div>';
+  let shown = 0;
+  c.all.forEach((cat) => {
+    const inCat = live().filter((i) => i.kind === 'item' && i.cat === cat && (cfg.filter === 'all' || i.owner === cfg.filter));
+    if (!inCat.length) return;
+    const counted = inCat.filter((i) => !i.skip);
+    const vis = inCat.filter((i) => !(cfg.hide && i.done)).sort((a, b) => (a.skip - b.skip) || a.name.localeCompare(b.name) || a.owner.localeCompare(b.owner));
+    shown += vis.length;
+    h += group('p:' + cat, cat, counted.filter((i) => i.done).length, counted.length, '<ul>' + vis.map((i) => row(i, i.done, 'pack')).join('') + '</ul>');
+  });
+  if (!shown) h += '<p class="note">' + (pc.total && pc.done === pc.total ? 'Everything is packed. Go find a thrift store.' : 'Nothing to show with this filter.') + '</p>';
+  h += '<p class="note">Tap a name to change it, mark it "don\'t leave behind", or skip it for this trip.</p>';
+  return h;
+}
+function renderDepart() {
+  const d = departRows();
+  const count = d.items.concat(d.sweeps, d.chores).filter((i) => !i.skip);
+  let h = progress(count.filter(isOn).length, count.length, 'squared away');
+  if (!d.items.length) h += '<p class="note">Nothing flagged has been packed yet. Anything you mark "don\'t leave behind" shows up here once it\'s checked off on the Pack tab.</p>';
+  ROOMS.forEach((room) => {
+    const its = d.items.filter((i) => (i.room || 'Anywhere') === room).sort((a, b) => a.name.localeCompare(b.name));
+    const sw = d.sweeps.filter((i) => (i.room || 'Anywhere') === room);
+    if (!its.length && !sw.length) return;
+    const cnt = its.concat(sw).filter((i) => !i.skip);
+    let body = '';
+    if (its.length) body += '<div class="subhd">Came with you</div><ul>' + its.map((i) => row(i, i.back, 'depart')).join('') + '</ul>';
+    if (sw.length) body += '<div class="subhd">Sweep the room</div><ul>' + sw.map((i) => row(i, i.done, 'depart')).join('') + '</ul>';
+    h += group('d:' + room, room, cnt.filter(isOn).length, cnt.length, body);
+  });
+  const ch = d.chores.filter((i) => !i.skip);
+  h += group('d:chores', 'Checkout chores', ch.filter(isOn).length, ch.length, '<ul>' + d.chores.map((i) => row(i, i.done, 'depart')).join('') + '</ul>');
+  return h;
+}
+function render() {
+  $('ver').textContent = 'v' + VERSION;
+  $('trip').textContent = trip().name || '';
+  $('status').textContent = status || (cfg.url ? (cfg.last ? 'Synced ' + hm(cfg.last) : 'Not synced yet') : 'This phone only');
+  document.querySelectorAll('nav button').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tab === cfg.tab)));
+  $('view').innerHTML = cfg.tab === 'pack' ? renderPack() : renderDepart();
+  const sel = $('addwhere'), keep = sel.dataset.tab === cfg.tab ? sel.value : '';
+  if (cfg.tab === 'pack') {
+    $('addname').placeholder = 'Add something to pack';
+    sel.innerHTML = cats().all.map((c) => '<option>' + esc(c) + '</option>').join('') + '<option value="__new__">+ New subject</option>';
+  } else {
+    $('addname').placeholder = 'Add a chore or a spot to check';
+    sel.innerHTML = '<option value="chore">Checkout chore</option>' + ROOMS.map((r) => '<option value="' + esc(r) + '">Sweep: ' + esc(r) + '</option>').join('');
+  }
+  sel.dataset.tab = cfg.tab;
+  if (keep && [...sel.options].some((o) => o.value === keep)) sel.value = keep;
+}
+
+/* ---------- actions ---------- */
+$('view').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-act]'); if (!b) return;
+  const act = b.dataset.act, id = b.dataset.id;
+  if (act === 'me') { cfg.me = id; saveCfg(); render(); }
+  else if (act === 'filter') { cfg.filter = id; saveCfg(); render(); }
+  else if (act === 'hide') { cfg.hide = !cfg.hide; saveCfg(); render(); }
+  else if (act === 'fold') { cfg.closed[b.dataset.key] = !cfg.closed[b.dataset.key]; saveCfg(); render(); }
+  else if (act === 'edit') openEdit(byId(id));
+  else if (act === 'chk') {
+    const it = byId(id); if (!it) return;
+    const now = Date.now(), who = cfg.me || '';
+    if (cfg.tab === 'pack') {
+      it.done = !it.done; it.doneBy = it.done ? who : ''; it.doneAt = it.done ? now : 0;
+      if (!it.done) { it.back = false; it.backBy = ''; it.backAt = 0; }
+    } else if (it.kind === 'item') {
+      it.back = !it.back; it.backBy = it.back ? who : ''; it.backAt = it.back ? now : 0;
+    } else {
+      it.done = !it.done; it.doneBy = it.done ? who : ''; it.doneAt = it.done ? now : 0;
+    }
+    touch(it); commit();
+  }
+});
+document.querySelector('nav').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-tab]'); if (!b) return;
+  cfg.tab = b.dataset.tab; saveCfg(); render(); document.querySelector('main').scrollTop = 0;
+});
+$('addform').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const name = $('addname').value.trim(), where = $('addwhere').value;
+  if (!name) { $('addname').focus(); return; }
+  let it;
+  if (cfg.tab === 'pack') {
+    if (where === '__new__') { openEdit(mk({ name: name, owner: cfg.filter !== 'all' ? cfg.filter : (cfg.me || 'S') }), true); return; }
+    it = mk({ name: name, cat: where, owner: cfg.filter !== 'all' ? cfg.filter : (cfg.me || 'S') });
+  } else {
+    it = where === 'chore' ? mk({ kind: 'chore', name: name }) : mk({ kind: 'sweep', name: name, room: where });
+  }
+  items.push(it); touch(it); $('addname').value = ''; commit();
+});
+
+/* ---------- edit dialog ---------- */
+const dlg = $('dlg');
+function armTwice(btn, fn) {
+  btn.addEventListener('click', () => {
+    if (btn.dataset.armed) { fn(); return; }
+    const was = btn.textContent; btn.dataset.armed = '1'; btn.textContent = 'Tap again to confirm';
+    setTimeout(() => { delete btn.dataset.armed; btn.textContent = was; }, 3500);
+  });
+}
+function openEdit(it, isNew) {
+  if (!it) return;
+  const c = cats().all, isItem = it.kind === 'item';
+  let h = '<form method="dialog" id="ef"><h2>' + (isNew ? 'New entry' : 'Edit') + '</h2>' +
+    '<label class="fld"><span>Name</span><input type="text" id="e-name" maxlength="120" value="' + esc(it.name) + '"></label>';
+  if (isItem) {
+    h += '<label class="fld"><span>Subject</span><select id="e-cat">' + c.map((x) => '<option' + (x === it.cat ? ' selected' : '') + '>' + esc(x) + '</option>').join('') +
+      '<option value="__new__"' + (isNew ? ' selected' : '') + '>+ New subject</option></select></label>' +
+      '<label class="fld" id="e-newwrap"' + (isNew ? '' : ' hidden') + '><span>New subject name</span><input type="text" id="e-newcat" maxlength="40"></label>' +
+      '<div class="fld"><span>Whose is it</span><div class="seg">' + ['W', 'B', 'S'].map((o) =>
+        '<label><input type="radio" name="e-own" value="' + o + '"' + (it.owner === o ? ' checked' : '') + '><span>' + PEOPLE[o] + '</span></label>').join('') + '</div></div>' +
+      '<label class="tog"><input type="checkbox" id="e-flag"' + (it.flag ? ' checked' : '') + '><span>Don\'t leave behind (shows on the Depart tab)</span></label>' +
+      '<label class="fld" id="e-roomwrap"' + (it.flag ? '' : ' hidden') + '><span>Where it ends up at the rental</span><select id="e-room">' +
+        ROOMS.map((r) => '<option' + (r === (it.room || 'Anywhere') ? ' selected' : '') + '>' + esc(r) + '</option>').join('') + '</select></label>';
+  } else {
+    const cur = it.kind === 'chore' ? 'chore' : (it.room || 'Anywhere');
+    h += '<label class="fld"><span>Where it goes</span><select id="e-where"><option value="chore"' + (cur === 'chore' ? ' selected' : '') + '>Checkout chore</option>' +
+      ROOMS.map((r) => '<option value="' + esc(r) + '"' + (cur === r ? ' selected' : '') + '>Sweep: ' + esc(r) + '</option>').join('') + '</select></label>';
+  }
+  h += '<label class="tog"><input type="checkbox" id="e-skip"' + (it.skip ? ' checked' : '') + '><span>Not this trip (stays on the list, doesn\'t count)</span></label>' +
+    '<div class="acts"><button class="btn" type="submit">Save</button><button class="btn ghost" type="button" id="e-cancel">Cancel</button>' +
+    (isNew ? '' : '<button class="btn danger" type="button" id="e-del">Delete</button>') + '</div></form>';
+  dlg.innerHTML = h;
+  if (isItem) {
+    $('e-cat').addEventListener('change', () => { $('e-newwrap').hidden = $('e-cat').value !== '__new__'; });
+    $('e-flag').addEventListener('change', () => { $('e-roomwrap').hidden = !$('e-flag').checked; });
+  }
+  $('e-cancel').addEventListener('click', () => dlg.close());
+  if (!isNew) armTwice($('e-del'), () => { it.deleted = true; touch(it); dlg.close(); commit(); });
+  $('ef').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const name = $('e-name').value.trim(); if (!name) { $('e-name').focus(); return; }
+    it.name = name;
+    if (isItem) {
+      let cat = $('e-cat').value;
+      if (cat === '__new__') { cat = $('e-newcat').value.trim(); if (!cat) { $('e-newcat').focus(); return; } }
+      it.cat = cat; it.owner = (dlg.querySelector('input[name="e-own"]:checked') || { value: 'S' }).value;
+      it.flag = $('e-flag').checked; it.room = it.flag ? $('e-room').value : '';
+    } else {
+      const w = $('e-where').value;
+      it.kind = w === 'chore' ? 'chore' : 'sweep'; it.room = w === 'chore' ? '' : w;
+    }
+    it.skip = $('e-skip').checked;
+    if (isNew) { items.push(it); $('addname').value = ''; }
+    touch(it); dlg.close(); commit();
+  });
+  dlg.showModal();
+}
+
+/* ---------- settings ---------- */
+function setupLink() { return location.origin + location.pathname + '?u=' + encodeURIComponent(cfg.url); }
+function openSettings() {
+  dlg.innerHTML = '<form method="dialog" id="sf"><h2>Settings</h2>' +
+    '<div class="fld"><span>Who\'s holding this phone</span><div class="seg">' + ['W', 'B'].map((o) =>
+      '<label><input type="radio" name="s-me" value="' + o + '"' + (cfg.me === o ? ' checked' : '') + '><span>' + PEOPLE[o] + '</span></label>').join('') + '</div></div>' +
+    '<label class="fld"><span>Trip name</span><input type="text" id="s-trip" maxlength="60" placeholder="Smokies, October" value="' + esc(trip().name) + '"></label>' +
+    '<button class="btn danger" type="button" id="s-reset">Start a new trip (clear every check mark)</button>' +
+    '<p class="note">The list stays. Check marks and "not this trip" are cleared on both phones.</p><hr>' +
+    '<label class="fld"><span>Google Sheet link (ends in /exec)</span><input type="url" id="s-url" inputmode="url" placeholder="https://script.google.com/macros/s/.../exec" value="' + esc(cfg.url) + '"></label>' +
+    (cfg.url ? '<div class="fld"><span>Setup link for the other phone</span><div class="link" id="s-link">' + esc(setupLink()) + '</div><button class="btn ghost" type="button" id="s-copy">Copy setup link</button></div>' : '') +
+    '<p class="note" id="s-info">App v' + VERSION + (cfg.sv ? ' · Sheet script v' + esc(cfg.sv) : '') + ' · ' + esc($('status').textContent) + '</p>' +
+    '<div class="acts"><button class="btn" type="submit">Save &amp; sync</button><button class="btn ghost" type="button" id="s-close">Close</button></div></form>';
+  $('s-close').addEventListener('click', () => dlg.close());
+  armTwice($('s-reset'), () => {
+    live().forEach((it) => {
+      if (it.kind === 'meta') return;
+      if (it.done || it.back || it.skip) { it.done = false; it.doneBy = ''; it.doneAt = 0; it.back = false; it.backBy = ''; it.backAt = 0; it.skip = false; touch(it); }
+    });
+    dlg.close(); commit();
+  });
+  if (cfg.url) $('s-copy').addEventListener('click', async () => {
+    const b = $('s-copy');
+    try { await navigator.clipboard.writeText(setupLink()); b.textContent = 'Copied'; }
+    catch (e) { const r = document.createRange(); r.selectNodeContents($('s-link')); const s = getSelection(); s.removeAllRanges(); s.addRange(r); b.textContent = 'Selected. Copy it from here'; }
+  });
+  $('sf').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const me = dlg.querySelector('input[name="s-me"]:checked'); if (me) cfg.me = me.value;
+    const u = $('s-url').value.trim();
+    if (u && !/^https:\/\/.+\/exec$/.test(u)) { $('s-info').textContent = 'That link should start with https:// and end in /exec.'; $('s-url').focus(); return; }
+    if (u !== cfg.url) { cfg.url = u; cfg.last = 0; items.forEach((i) => { i._d = true; }); }
+    const t = trip(), nm = $('s-trip').value.trim();
+    if (t.name !== nm) { t.name = nm; touch(t); }
+    saveCfg(); dlg.close(); commit(); sync();
+  });
+  dlg.showModal();
+}
+$('gear').addEventListener('click', openSettings);
+
+/* ---------- sync: send what changed here, take back the whole list ---------- */
+let syncing = false, timer = 0;
+function queueSync() { clearTimeout(timer); timer = setTimeout(sync, 1200); }
+async function sync() {
+  if (!cfg.url || syncing) return;
+  syncing = true;
+  try {
+    const dirty = items.filter((i) => i._d).map((i) => { const o = {}; FIELDS.forEach((f) => { o[f] = i[f]; }); return o; });
+    const res = await fetch(cfg.url, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ rows: dirty }) });
+    const js = await res.json();
+    if (!js.ok) throw new Error(js.error || 'Sheet refused the update');
+    const mine = new Map(items.map((i) => [i.id, i]));
+    js.rows.forEach((s) => {
+      const l = mine.get(s.id);
+      if (!l) { items.push(s); return; }
+      if (l._d && l.updated > s.updated) return;             // edited again while this was in flight
+      FIELDS.forEach((f) => { l[f] = s[f]; }); delete l._d;
+    });
+    cfg.last = Date.now(); cfg.sv = js.v || ''; status = '';
+    saveCfg(); saveItems();
+    if (!dlg.open) render(); else $('status').textContent = 'Synced ' + hm(cfg.last);
+    if (items.some((i) => i._d)) queueSync();
+  } catch (err) {
+    status = navigator.onLine === false ? 'No signal. Saved here, will sync' : 'Sync failed. Will retry';
+    $('status').textContent = status;
+  } finally { syncing = false; }
+}
+setInterval(() => { if (document.visibilityState === 'visible') sync(); }, 20000);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') sync(); });
+window.addEventListener('online', sync);
+
+render();
+sync();
+if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
+</script>
+</body>
+</html>
